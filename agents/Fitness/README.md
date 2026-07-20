@@ -1,25 +1,35 @@
-# 本地健身记录 Agent
+# Local fitness log agent
 
-每天运行：
+Ask for a daily check-in, analyze with local Ollama, save Markdown.
+
+## Dependencies
+
+- Python 3.10+
+- Ollama with model `qwen2.5:7b` (change `MODEL` in `fitness_agent.py` if needed)
+- `curl` (launcher checks Ollama)
+
+No extra pip packages.
+
+## Run
 
 ```bash
-~/AI_Data/Fitness/run.sh
+cd ~/rli/agents_for_fun/agents/Fitness
+./run.sh
 ```
 
-脚本会询问体重（磅）、腰围、睡眠、步数、训练、饮食、蛋白质、饮水、
-饥饿感、精神状态和疼痛情况，随后使用本机 Ollama 的 `qwen2.5:7b`
-生成分析。
+Prompts cover weight (lb), waist, sleep, steps, training, food, protein, water,
+hunger, energy, and pain, then generates a short analysis.
 
-日报保存在：
+## Output
 
 ```text
 daily/YYYY/MM/YYYY-MM-DD.md
 ```
 
-周报预留目录：
+Weekly folder reserved:
 
 ```text
 weekly/
 ```
 
-这些分析用于记录和一般性建议，不替代医生、营养师或教练的专业判断。
+Personal logs are gitignored. For journaling and general tips only — not medical advice.

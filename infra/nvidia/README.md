@@ -1,29 +1,30 @@
-# NVIDIA GPU 唤醒（Optimus 笔记本）
+# NVIDIA GPU wake (Optimus laptops)
 
-部分 MSI / Optimus 笔记本上，GPU 会停在 D3cold，导致 `nvidia-smi` / Ollama GPU 失败。  
-可用本单元在开机时尝试唤醒。
+On some MSI / Optimus machines the dGPU stays in D3cold, so `nvidia-smi` and Ollama GPU fail.  
+This oneshot unit tries to wake the GPU at boot.
 
-## 安装
+## Install
+
+From the `agents_for_fun` repo root:
 
 ```bash
-# 在 agents_for_fun 仓库根目录
 sudo cp infra/nvidia/nvidia-gpu-wake.service /etc/systemd/system/
 ```
 
-按需编辑 PCI 地址（默认示例为 `0000:01:00.0`）：
+Edit the PCI address if needed (default example: `0000:01:00.0`):
 
 ```bash
 lspci | grep -i nvidia
-sudo systemctl edit --full nvidia-gpu-wake.service   # 或直接改 unit 文件
+sudo systemctl edit --full nvidia-gpu-wake.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now nvidia-gpu-wake.service
 ```
 
-## 验证
+## Verify
 
 ```bash
 nvidia-smi -L
 systemctl status nvidia-gpu-wake.service
 ```
 
-Dify / Ollama 启动前，`infra/dify/deploy.sh` 也会尝试唤醒 GPU。
+`infra/dify/deploy.sh` also attempts a GPU wake before starting Dify / Ollama.

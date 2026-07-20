@@ -1,79 +1,102 @@
 # agents_for_fun
 
-本机「好玩用」的 Agent 与 AI 栈小合集：
+A small local stack for fun agents and AI tooling:
 
-- **终端 Agent**：塔罗解读、健身日记（Ollama + Markdown）
-- **Dify**：Docker 一键部署脚本，网页里搭 Chatflow / Agent
-- **NVIDIA**：笔记本 Optimus GPU 唤醒（可选）
+- **Terminal agents** — Tarot, fitness logs, **50-day challenge** (Ollama → Markdown)
+- **Dify** — Docker deploy helper for browser Chatflows / Agents
+- **NVIDIA** — optional Optimus laptop GPU wake service
 
-不包含完整 [Dify 上游源码](https://github.com/langgenius/dify)；请官方仓库另装，再用本仓库脚本。
+This repo does **not** vendor the full [Dify upstream](https://github.com/langgenius/dify). Clone Dify separately, then use the scripts here.
 
-## 仓库结构
+**Repo location (this machine):** `~/rli/agents_for_fun`
+
+**Everyday launchers (journals stay here):** `~/AI_Data/` — thin `.sh` wrappers call this repo after reboot without re-setup. See `~/AI_Data/README.md`.
+
+## Layout
 
 ```text
 agents/
-  Tarot/     # 本地塔罗（抽牌 / 语料 / 可选联网）
-  Fitness/   # 健身记录
+  Tarot/        # Local RWS corpus + draw / interpret CLI
+  Fitness/      # Daily fitness journal CLI
+  Challenge50/  # 50-day challenge accountability CLI
 infra/
-  dify/      # Docker 部署说明 + deploy.sh   ← 从这里读 Dify 用法
-  nvidia/    # GPU 开机唤醒 systemd 单元
+  dify/         # Docker deploy docs + deploy.sh
+  nvidia/       # GPU wake systemd unit
 ```
 
-## 快速开始
+## Dependencies
 
-### 1）终端塔罗（不依赖 Dify）
+| Dependency | Required for | Notes |
+|------------|--------------|--------|
+| Python 3.10+ | Tarot, Fitness, Challenge50 | stdlib + optional venv |
+| [Ollama](https://ollama.com/) | All local LLM calls | Default model: `qwen2.5:7b` |
+| `curl`, `bash` | Launch scripts | |
+| Docker + Compose v2 | Dify only | |
+| `ddgs` (PyPI) | Tarot **web** search | Installed into `agents/Tarot/.venv` automatically when needed |
+| Optional blog dir | Tarot corpus rebuild / local excerpts | `TAROT_BLOG_POSTS` (default `~/rli/blog_book_notes/_posts`) |
+| NVIDIA driver (optional) | Faster Ollama | See `infra/nvidia/` on Optimus laptops |
+
+Quick checks:
 
 ```bash
-cd agents/Tarot
-./fetch-corpus.sh
-./tarot.sh
-# 或一键：
-./tarot.sh 3 --draw -q "下周如何安排" -y --offline
+python3 --version
+curl -fsS http://127.0.0.1:11434/api/tags | head
+docker compose version   # only if using Dify
 ```
 
-详见 [`agents/Tarot/README.md`](agents/Tarot/README.md)。
+## Quick start
 
-### 2）健身日记
+### 1) Tarot (no Dify)
 
 ```bash
-cd agents/Fitness
+cd ~/rli/agents_for_fun/agents/Tarot
+./fetch-corpus.sh          # once: rebuild local 78-card corpus
+./tarot.sh                 # menu
+./tarot.sh 3 --draw -q "How should I plan next week?" -y --offline
+```
+
+See [`agents/Tarot/README.md`](agents/Tarot/README.md).
+
+### 2) Fitness log
+
+```bash
+cd ~/rli/agents_for_fun/agents/Fitness
 ./run.sh
+# or: ~/AI_Data/Fitness/run.sh
 ```
 
-### 3）Dify（Docker）
+### 3) 50-day challenge
 
-完整步骤（环境、`.env`、Compose、连 Ollama、排错）：
+```bash
+~/AI_Data/Challenge50/setup.sh    # once
+~/AI_Data/Challenge50/run.sh      # daily log
+~/AI_Data/Challenge50/status.sh   # Day N/50
+```
 
-**→ [`infra/dify/README.md`](infra/dify/README.md)**
+See [`agents/Challenge50/README.md`](agents/Challenge50/README.md).
 
-最短路径：
+### 4) Dify (Docker)
+
+Full guide: **[`infra/dify/README.md`](infra/dify/README.md)**
 
 ```bash
 git clone https://github.com/langgenius/dify.git ~/dify
 cd ~/dify/docker && cp .env.example .env
 
-# 从本仓库拷脚本
-cp /path/to/agents_for_fun/infra/dify/deploy.sh ./deploy.sh
+cp ~/rli/agents_for_fun/infra/dify/deploy.sh ./deploy.sh
 chmod +x deploy.sh
 ./deploy.sh up
 ```
 
-浏览器打开 http://localhost ，在 **Integrations → Model Provider → Ollama** 填宿主机地址（如 `http://172.17.0.1:11434`）。
+Open http://localhost → **Integrations → Model Provider → Ollama**  
+Use a host-reachable base URL such as `http://172.17.0.1:11434` (not container `127.0.0.1`).
 
-## 前置
+## Privacy
 
-| 组件 | 用途 |
-|------|------|
-| [Ollama](https://ollama.com/) + `qwen2.5:7b` 等 | 终端 Agent 与 Dify 共用 |
-| Docker / Compose | 仅跑 Dify 需要 |
-| NVIDIA 驱动（可选） | 加速推理；Optimus 见 `infra/nvidia/` |
-
-## 隐私与 Git
-
-- 不提交 `.env`、API Key、个人占卜/健身日记  
-- `.gitignore` 已排除 `questions/`、按日期 md、`.venv`、`volumes/`  
-- 语料来自公开 Pictorial Key + 本地博客构建脚本  
+- Do not commit `.env`, API keys, or personal journals
+- `.gitignore` excludes dated notes, `questions/`, `.venv`, Docker volumes
+- Bundled card text comes from public Pictorial Key data (+ optional local blog rebuild)
 
 ## License
 
-本仓库脚本按个人使用分发；Dify 本体遵循其官方 License。
+Scripts in this repo are for personal use. Dify itself follows its upstream license.

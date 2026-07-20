@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""带问题的三牌/五牌塔罗分析：本地语料 → 网络+cache → 校验 → 生成。"""
+"""Question spreads (3/5 cards): local corpus → web+cache → generate."""
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from datetime import date, datetime
@@ -20,10 +21,11 @@ from tarot_agent import (
 )
 
 ROOT = Path(__file__).resolve().parent
+DATA_ROOT = Path(os.environ.get("TAROT_DATA_ROOT", str(ROOT))).expanduser().resolve()
 
 POSITIONS = {
-    3: ["现状", "阻碍", "建议"],
-    5: ["核心", "过去影响", "当前状态", "挑战", "行动建议"],
+    3: ["Situation", "Obstacle", "Advice"],
+    5: ["Core", "Past influence", "Current state", "Challenge", "Action advice"],
 }
 
 
@@ -35,17 +37,17 @@ def collect(
     question: str | None = None,
     seed: str | None = None,
 ) -> dict[str, object]:
-    print(f"\n带问题的 {count} 张牌分析\n")
-    q = question if question is not None else ask("你的问题")
+    print(f"\nQuestion reading — {count} cards\n")
+    q = question if question is not None else ask("Your question")
     if not q:
-        raise RuntimeError("三牌/五牌分析必须输入问题")
+        raise RuntimeError("A question is required for 3/5-card readings")
 
     if draw:
         from deck import draw_cards, format_drawn
 
         positions = POSITIONS[count]
         drawn = draw_cards(count, seed=seed)
-        print("\n自动抽牌：")
+        print("\nAuto-draw:")
         print(format_drawn(drawn, positions))
         cards = [
             {
@@ -55,26 +57,26 @@ def collect(
             }
             for index, item in enumerate(drawn)
         ]
-        context = "" if question is not None else ask("\n背景补充（可选）")
+        context = "" if question is not None else ask("\nContext (optional)")
         return {"date": day, "question": q, "cards": cards, "context": context}
 
     cards: list[dict[str, str]] = []
     for index, position in enumerate(POSITIONS[count], 1):
-        print(f"\n第 {index} 张｜{position}")
+        print(f"\nCard {index}｜{position}")
         cards.append(
             {
                 "position": position,
-                "card": ask("牌名"),
-                "orientation": ask("正/逆"),
+                "card": ask("Card name"),
+                "orientation": ask("Upright/Reversed (正/逆)"),
             }
         )
         if not cards[-1]["card"] or not cards[-1]["orientation"]:
-            raise RuntimeError("每张牌的牌名和正/逆都必须填写")
+            raise RuntimeError("每张牌的Card name和Upright/Reversed (正/逆)都必须填写")
     return {
         "date": day,
         "question": q,
         "cards": cards,
-        "context": "" if question is not None else ask("\n背景补充（可选）"),
+        "context": "" if question is not None else ask("\nContext (optional)"),
     }
 
 
@@ -88,9 +90,9 @@ def resolve_reading(data: dict[str, object]) -> dict[str, object]:
         orientation_full = "逆位" if "逆" in orientation else "正位"
         if not corpus:
             tips = suggest_cards(str(item["card"]))
-            tip_text = "；候选：" + "、".join(tips) if tips else ""
+            tip_text = "; suggestions: " + "、".join(tips) if tips else ""
             raise RuntimeError(
-                f"未识别牌名「{item['card']}」（位置：{item['position']}）{tip_text}"
+                f"未识别Card name「{item['card']}' (position: {item['position']}）{tip_text}"
             )
         card_zh = str(corpus.get("name_zh"))
         card_en = str(corpus.get("name_en"))
@@ -126,7 +128,7 @@ def locked_spread_lines(plan: dict[str, object]) -> str:
 def extract_json_object(raw: str) -> dict[str, object]:
     match = re.search(r"\{.*\}", raw, re.S)
     if not match:
-        raise RuntimeError("模型未返回可用 JSON")
+        raise RuntimeError("Model did not return usable JSON")
     return json.loads(match.group(0))
 
 
@@ -371,7 +373,7 @@ def generate_one_card(
 
 硬性规则：
 1. 每一句都要能回答「{data['question']}」。
-2. 只能写 {item['card_zh']}，禁止其他牌名（{other_names or '无'}）。
+2. 只能写 {item['card_zh']}，禁止其他Card name（{other_names or '无'}）。
 3. {"禁止出现这些词：" + ban + "。把「爱/和谐」改写成协作、对齐、信任、情绪负荷。" if non_romance else "可谈感情，但仍要具体回答原问题。"}
 4. 不断言命运；不提供医疗/法律/投资承诺。
 """
@@ -380,7 +382,7 @@ def generate_one_card(
             {
                 "role": "system",
                 "content": (
-                    f"只输出 JSON。解读【{item['position']}】的{item['card_zh']}{item['orientation']}。"
+                    f"Output JSON only. Write values in English. 解读【{item['position']}】的{item['card_zh']}{item['orientation']}。"
                     f"必须紧扣「{data['question']}」。"
                     + ("严禁伴侣/恋爱等词。" if non_romance else "")
                 ),
@@ -410,7 +412,7 @@ def generate_one_card(
                 {
                     "role": "system",
                     "content": (
-                        "只输出 JSON。上一次不合格（跑题或串牌）。"
+                        "Output JSON only. Write values in English. 上一次不合格（跑题或串牌）。"
                         f"必须直接回答「{data['question']}」，只写 {item['card_zh']}{item['orientation']}。"
                         + (f"禁止词：{ban}" if non_romance else "")
                     ),
@@ -500,14 +502,14 @@ def generate_synthesis(
 硬性规则：
 1. conclusion / answer / advice 必须像在回答「{q}」。
 2. {"禁止出现：" + ban if non_romance else "可谈感情但仍要答原问题。"}
-3. 不要引入新牌名。
+3. 不要引入新Card name。
 """
     raw = chat(
         [
             {
                 "role": "system",
                 "content": (
-                    f"只输出 JSON。直接回答「{q}」。"
+                    f"Output JSON only. Write values in English. 直接回答「{q}」。"
                     + ("严禁伴侣/恋爱等词。" if non_romance else "")
                 ),
             },
@@ -564,8 +566,8 @@ def assemble_markdown(
     non_romance = question_is_non_romance(
         str(data["question"]), str(data.get("context") or "")
     )
-    conclusion = str(payload.get("conclusion") or "见正文")
-    actions_summary = str(payload.get("actions_summary") or "见正文建议")
+    conclusion = str(payload.get("conclusion") or "see body")
+    actions_summary = str(payload.get("actions_summary") or "see body建议")
     background = str(payload.get("background") or data.get("context") or data["question"])
     keywords = payload.get("keywords") if isinstance(payload.get("keywords"), dict) else {}
     per_card = payload.get("per_card") if isinstance(payload.get("per_card"), dict) else {}
@@ -574,7 +576,7 @@ def assemble_markdown(
         advice = ["结合牌义复盘本周重点", "先处理可控事项", "保留弹性时间", "避免过度承诺"]
 
     overview_rows = [
-        "| 位置 | 牌名 | 正逆位 | 关键词 |",
+        "| 位置 | Card name | 正逆位 | 关键词 |",
         "|------|------|--------|--------|",
     ]
     card_sections: list[str] = []
@@ -582,7 +584,7 @@ def assemble_markdown(
         pos = str(item["position"])
         card_zh = str(item["card_zh"])
         orientation = str(item["orientation"])
-        kw = str(keywords.get(pos) or "见正文")
+        kw = str(keywords.get(pos) or "see body")
         body = str(per_card.get(pos) or "").strip()
         if (not body) or (non_romance and contains_romance(f"{kw} {body}")):
             fb = practical_card_fallback(data, item)
@@ -599,9 +601,9 @@ def assemble_markdown(
         for ref in refs[:10]:
             ref_lines.append(f"- {ref.get('title') or '资料'} — {ref.get('url')}")
     else:
-        ref_lines.append("- 本地语料 corpus/waite-rws.json（本题非感情问，已省略易跑题网络摘录）")
+        ref_lines.append("- Local corpus corpus/waite-rws.json(non-romance question; romance-heavy web excerpts omitted)")
     if not ref_lines:
-        ref_lines.append("- 本地语料 corpus/waite-rws.json")
+        ref_lines.append("- Local corpus corpus/waite-rws.json")
 
     answer = str(payload.get("answer") or conclusion)
     connections = str(payload.get("connections") or "（见综合回答）")
@@ -633,35 +635,35 @@ def assemble_markdown(
         reflection = f"若只为「{data['question']}」服务，你最先该砍掉的是什么？"
 
     parts = [
-        f"{data['date']} {count}牌问题分析｜{data['question']}｜{conclusion}｜{actions_summary}",
+        f"{data['date']} {count}-card reading｜{data['question']}｜{conclusion}｜{actions_summary}",
         "",
-        f"# {count}牌问题分析｜{data['question']}",
+        f"# {count}-card reading｜{data['question']}",
         "",
-        "## 问题与背景",
+        "## Question & context",
         background,
         "",
-        "## 牌阵概览",
+        "## Spread overview",
         "\n".join(overview_rows),
         "",
-        "## 逐牌解析",
+        "## Card-by-card",
         "\n\n".join(card_sections),
         "",
-        "## 牌与牌之间的联系",
+        "## How the cards connect",
         connections,
         "",
-        "## 对问题的综合回答",
+        "## Answer to the question",
         answer,
         "",
-        "## 可执行建议",
+        "## Actionable advice",
         advice_lines,
         "",
-        "## 反思问题",
+        "## Reflection",
         reflection,
         "",
-        "## 风险与边界",
+        "## Risks & boundaries",
         str(payload.get("risks") or "塔罗用于自我觉察，不替代专业建议。"),
         "",
-        "## 参考资料",
+        "## References",
         "\n".join(ref_lines),
         "",
     ]
@@ -699,7 +701,7 @@ def save(
 ) -> Path:
     """Keep history. Same cards → ask overwrite latest twin; different → always new file."""
     year, month, _ = day.split("-")
-    directory = ROOT / "questions" / year / month
+    directory = DATA_ROOT / "questions" / year / month
     directory.mkdir(parents=True, exist_ok=True)
     body = with_card_meta(markdown, fingerprint)
     timestamp = datetime.now().strftime("%H%M%S")
@@ -716,15 +718,15 @@ def save(
 
     if same_files:
         latest = same_files[-1]
-        if yes or input(f"今日已有相同牌阵文件 {latest.name}，覆盖？[y/N]: ").strip().lower() == "y":
+        if yes or input(f"Same spread already saved today as {latest.name}. Overwrite? [y/N]: ").strip().lower() == "y":
             latest.write_text(body, encoding="utf-8")
-            print(f"已覆盖同牌阵文件：{latest}")
+            print(f"Overwrote same-spread file: {latest}")
             return latest
-        print("不覆盖，另存新文件。")
+        print("Keeping old file; saving a new copy.")
     else:
         peers = list(directory.glob(f"{day}-*-{count}cards.md"))
         if peers:
-            print(f"牌阵与今日已有记录不同，生成新文件：{destination.name}")
+            print(f"Different spread than earlier today; new file: {destination.name}")
 
     destination.write_text(body, encoding="utf-8")
     return destination
@@ -757,7 +759,7 @@ def parse_cli(argv: list[str]) -> dict[str, object]:
         positionals.append(arg)
         i += 1
     if not positionals:
-        raise RuntimeError("用法：question_agent.py <3|5> [YYYY-MM-DD] [--draw] [-q 问题]")
+        raise RuntimeError("Usage: question_agent.py <3|5> [YYYY-MM-DD] [--draw] [-q question]")
     count = int(positionals[0])
     day = positionals[1] if len(positionals) > 1 else date.today().isoformat()
     return {
@@ -774,7 +776,7 @@ def parse_cli(argv: list[str]) -> dict[str, object]:
 def confirm_spread(plan: dict[str, object], *, yes: bool = False) -> None:
     from deck import format_drawn
 
-    print("\n确认牌阵：")
+    print("\nConfirm spread:")
     print(
         format_drawn(
             [
@@ -790,9 +792,9 @@ def confirm_spread(plan: dict[str, object], *, yes: bool = False) -> None:
     )
     if yes:
         return
-    answer = input("开始生成？[Y/n]: ").strip().lower()
+    answer = input("Generate now? [Y/n]: ").strip().lower()
     if answer in ("n", "no"):
-        raise RuntimeError("已取消")
+        raise RuntimeError("Cancelled")
 
 
 def main() -> int:
@@ -800,7 +802,7 @@ def main() -> int:
         opts = parse_cli(sys.argv)
         count = int(opts["count"])
         if count not in POSITIONS:
-            raise RuntimeError("只支持 3 张或 5 张牌")
+            raise RuntimeError("Only 3-card or 5-card spreads are supported")
         day = str(opts["day"])
         date.fromisoformat(day)
         offline = bool(opts["offline"])
@@ -815,18 +817,18 @@ def main() -> int:
             question=opts["question"] if isinstance(opts["question"], str) else None,
             seed=opts["seed"] if isinstance(opts["seed"], str) else None,
         )
-        print("\n1/4 本地语料 + 博客……")
+        print("\n1/4 Local corpus + blog…")
         plan = resolve_reading(data)
         confirm_spread(plan, yes=bool(opts["yes"]))
 
-        print("\n2/4 网络搜索（带本地 cache）……")
+        print("\n2/4 Web search (cached)…")
         if offline:
-            print("  --offline：跳过联网")
+            print("  --offline: skipping web")
         research = gather_for_spread(plan["cards"], offline=offline)
-        print(f"  博客摘录：{len(research['local_sources'])} 篇")
-        print(f"  网络资料：{len(research['web_refs'])} 篇（{research['web_from']}）")
+        print(f"  Blog excerpts: {len(research['local_sources'])} 篇")
+        print(f"  Web sources: {len(research['web_refs'])} 篇（{research['web_from']}）")
 
-        print("\n3/4 逐张生成解读（避免串牌）……")
+        print("\n3/4 Per-card readings…")
         per_card: dict[str, dict[str, str]] = {}
         keywords: dict[str, str] = {}
         for item in plan["cards"]:
@@ -841,7 +843,7 @@ def main() -> int:
             per_card[pos] = result
             keywords[pos] = result["keywords"]
 
-        print("\n4/4 综合回答并组装 Markdown……")
+        print("\n4/4 Synthesis + Markdown…")
         synthesis = generate_synthesis(data, plan, per_card)
         payload = {
             **synthesis,
@@ -865,13 +867,13 @@ def main() -> int:
         print("\n" + "=" * 72)
         print(markdown)
         print("=" * 72)
-        print(f"\n已保存：{destination}")
+        print(f"\nSaved: {destination}")
         return 0
     except (RuntimeError, ValueError, KeyError, json.JSONDecodeError) as exc:
-        print(f"\n错误：{exc}", file=sys.stderr)
+        print(f"\nError: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\n已取消")
+        print("\nCancelled")
         return 130
 
 

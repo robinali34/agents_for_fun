@@ -1,0 +1,2 @@
+# Optional Python deps for Tarot web search
+ddgs>=9.0.0

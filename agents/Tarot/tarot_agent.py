@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""每日一抽：本地语料 → 网络+cache → 校验 → 生成 Markdown。"""
+"""Daily one-card: local corpus → optional web+cache → verify → Markdown."""
 
 from __future__ import annotations
 
@@ -13,10 +13,16 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+DATA_ROOT = Path(os.environ.get("TAROT_DATA_ROOT", str(ROOT))).expanduser().resolve()
 VENV_PYTHON = ROOT / ".venv" / "bin" / "python"
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MODEL = "qwen2.5:7b"
-BLOG_POSTS = Path("/home/robina/rli/blog_book_notes/_posts")
+MODEL = os.environ.get("TAROT_MODEL", "qwen2.5:7b")
+BLOG_POSTS = Path(
+    os.environ.get(
+        "TAROT_BLOG_POSTS",
+        str(Path.home() / "rli" / "blog_book_notes" / "_posts"),
+    )
+)
 CORPUS_PATH = ROOT / "corpus" / "waite-rws.json"
 _CORPUS_CACHE: dict[str, object] | None = None
 
@@ -33,13 +39,12 @@ def ensure_venv_python(need_web: bool = False) -> None:
             pass
         if not VENV_PYTHON.exists():
             raise RuntimeError(
-                "联网搜索需要虚拟环境。请先运行：./fetch-corpus.sh 与 ./daily-one.sh\n"
-                "或：python3 -m venv .venv && .venv/bin/pip install ddgs"
+                "Web search needs a venv. Run ./fetch-corpus.sh then retry, or:\n"
+                "  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
             )
         os.environ["TAROT_VENV_ACTIVE"] = "1"
         os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), str(Path(__file__).resolve()), *sys.argv[1:]])
         return
-    # Offline path: prefer venv if present, otherwise continue on system Python.
     if VENV_PYTHON.exists() and Path(sys.executable).resolve() != VENV_PYTHON.resolve():
         os.environ["TAROT_VENV_ACTIVE"] = "1"
         os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), str(Path(__file__).resolve()), *sys.argv[1:]])
@@ -78,7 +83,7 @@ def chat(messages: list[dict[str, str]], temperature: float = 0.3) -> str:
         with urllib.request.urlopen(request, timeout=300) as response:
             result = json.load(response)
     except (urllib.error.URLError, TimeoutError) as exc:
-        raise RuntimeError(f"无法连接 Ollama：{exc}") from exc
+        raise RuntimeError(f"Cannot reach Ollama: {exc}") from exc
     return result["message"]["content"].strip()
 
 
@@ -89,17 +94,17 @@ def collect(
     question: str | None = None,
     seed: str | None = None,
 ) -> dict[str, str]:
-    print("\n每日一抽\n")
+    print("\nDaily one-card draw\n")
     if draw:
         from deck import draw_cards, format_drawn
 
         drawn = draw_cards(1, seed=seed)[0]
-        print("自动抽牌：")
+        print("Auto-draw:")
         print(format_drawn([drawn]))
         card = drawn["card_zh"]
         orientation = drawn["orientation"]
-        q = question if question is not None else ask("今日问题（可选）")
-        notes = "" if question is not None else ask("补充记录（可选）")
+        q = question if question is not None else ask("Today's question (optional)")
+        notes = "" if question is not None else ask("Notes (optional)")
         return {
             "date": day,
             "card": card,
@@ -109,16 +114,16 @@ def collect(
             "drawn": "1",
         }
 
-    card = ask("牌名")
-    orientation = ask("正/逆")
+    card = ask("Card name")
+    orientation = ask("Upright/Reversed (正/逆)")
     if not card or not orientation:
-        raise RuntimeError("牌名和正/逆都必须填写")
+        raise RuntimeError("Card name and upright/reversed are required")
     return {
         "date": day,
         "card": card,
         "orientation": orientation,
-        "question": question if question is not None else ask("今日问题（可选）"),
-        "notes": "" if question is not None else ask("补充记录（可选）"),
+        "question": question if question is not None else ask("Today's question (optional)"),
+        "notes": "" if question is not None else ask("Notes (optional)"),
     }
 
 
@@ -136,7 +141,7 @@ def load_corpus() -> dict[str, object]:
         return _CORPUS_CACHE
     if not CORPUS_PATH.exists():
         raise RuntimeError(
-            f"缺少本地语料 {CORPUS_PATH}\n请先运行：./fetch-corpus.sh"
+            f"Missing local corpus {CORPUS_PATH}\nRun ./fetch-corpus.sh first"
         )
     _CORPUS_CACHE = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
     return _CORPUS_CACHE
@@ -194,9 +199,9 @@ def resolve_card_plan(data: dict[str, str], *, require_corpus: bool = True) -> d
     orientation_full = "逆位" if "逆" in orientation else "正位"
     if not card:
         tips = suggest_cards(data["card"])
-        tip_text = "；候选：" + "、".join(tips) if tips else ""
+        tip_text = "; suggestions: " + "、".join(tips) if tips else ""
         if require_corpus:
-            raise RuntimeError(f"未识别牌名「{data['card']}」{tip_text}")
+            raise RuntimeError(f"Unrecognized card name '{data['card']}'{tip_text}")
         card_zh = normalize_card(data["card"])
         card_en = english_card_name(card_zh, data["card"])
     else:
@@ -588,11 +593,11 @@ def build_prompt(
     corpus_block = (
         format_corpus_card(corpus_card, orientation)
         if isinstance(corpus_card, dict)
-        else "（本地语料未命中该牌，请依赖博客摘录与网络资料。）"
+        else "（本地语料未hit该牌，请依赖博客摘录与网络资料。）"
     )
     web_block = format_refs(refs) if refs else "（未获取网络资料。）"
     verify_block = verification or "（未完成校验。）"
-    return f"""你是塔罗标准解析写作者。请生成「独立单牌标准解析」，不结合个人过往。
+    return f"""你是塔罗标准解析写作者。请生成「独立单牌标准解析'，不结合个人过往。
 
 日期：{data['date']}
 牌名：{card_zh}
@@ -631,7 +636,7 @@ def build_prompt(
 ## 简短总结
 ## 参考资料
 
-4. 优先采用「资料校验摘要」中的关键词与行动方向；网络补充可丰富表达，但不得与本地韦特牌义矛盾而不加说明。
+4. 优先采用「资料校验摘要'中的关键词与行动方向；网络补充可丰富表达，但不得与本地韦特牌义矛盾而不加说明。
 5. 解析用于自我觉察，不断言命运，不提供医疗/法律/财务承诺。
 6. 不要编造用户未提供的个人事件。
 """
@@ -666,7 +671,7 @@ def extract_card_meta(text: str) -> str | None:
 def save(day: str, markdown: str, fingerprint: str, *, yes: bool = False) -> Path:
     """Save daily note. Different cards → new file; same cards → ask to overwrite."""
     year, month, _ = day.split("-")
-    directory = ROOT / year / month
+    directory = DATA_ROOT / year / month
     directory.mkdir(parents=True, exist_ok=True)
     primary = directory / f"{day}.md"
     body = with_card_meta(markdown, fingerprint)
@@ -679,12 +684,12 @@ def save(day: str, markdown: str, fingerprint: str, *, yes: bool = False) -> Pat
     if existing == fingerprint:
         if not yes:
             answer = input(
-                f"{primary} 已有相同牌面（{fingerprint}），覆盖？[y/N]: "
+                f"{primary} already has the same card（{fingerprint}），Overwrite? [y/N]: "
             ).strip().lower()
             if answer != "y":
-                raise RuntimeError("已取消，原文件未修改")
+                raise RuntimeError("Cancelled，file left unchanged")
         primary.write_text(body, encoding="utf-8")
-        print(f"已覆盖同牌面文件：{primary}")
+        print(f"Overwrote same-card file: {primary}")
         return primary
 
     from datetime import datetime as dt
@@ -693,8 +698,8 @@ def save(day: str, markdown: str, fingerprint: str, *, yes: bool = False) -> Pat
     destination.write_text(body, encoding="utf-8")
     old_label = existing or "未知牌面"
     print(
-        f"牌面不同（已有：{old_label} → 本次：{fingerprint}），"
-        f"保留 {primary.name}，另存为 {destination.name}"
+        f"Different card (existing: {old_label} → this run: {fingerprint}），"
+        f"保留 {primary.name}, saving as {destination.name}"
     )
     return destination
 
@@ -739,14 +744,14 @@ def parse_args(argv: list[str]) -> dict[str, object]:
 
 
 def confirm_plan(plan: dict[str, object], *, yes: bool = False) -> None:
-    print("\n确认牌面：")
+    print("\nConfirm card:")
     print(f"  {plan['card_zh']} / {plan.get('card_en', '')} {plan['orientation']}")
-    print(f"  本地语料：{'命中' if plan.get('corpus_card') else '未命中'}")
+    print(f"  Local corpus:{'hit' if plan.get('corpus_card') else '未hit'}")
     if yes:
         return
-    answer = input("开始生成？[Y/n]: ").strip().lower()
+    answer = input("Generate now? [Y/n]: ").strip().lower()
     if answer in ("n", "no"):
-        raise RuntimeError("已取消")
+        raise RuntimeError("Cancelled")
 
 
 def main() -> int:
@@ -765,26 +770,26 @@ def main() -> int:
             seed=opts["seed"] if isinstance(opts["seed"], str) else None,
         )
 
-        print("\n1/4 本地语料 + 博客……")
+        print("\n1/4 Local corpus + blog…")
         plan = resolve_card_plan(data)
         confirm_plan(plan, yes=bool(opts["yes"]))
 
-        print("\n2/4 网络搜索（带本地 cache）……")
+        print("\n2/4 Web search (cached)…")
         if offline:
-            print("  --offline：跳过联网")
+            print("  --offline: skipping web")
         research = gather_for_single(plan, data["card"], offline=offline)
-        print(f"  博客摘录：{len(research['local_sources'])} 篇")
-        print(f"  网络资料：{len(research['web_refs'])} 篇（{research['web_from']}）")
+        print(f"  Blog excerpts: {len(research['local_sources'])} 篇")
+        print(f"  Web sources: {len(research['web_refs'])} 篇（{research['web_from']}）")
 
-        print("\n3/4 API 校验（综合本地 + 网络）……")
+        print("\n3/4 API verification (local + web)…")
         print("-" * 40)
         print(research["verification"])
         print("-" * 40)
 
-        print("\n4/4 生成正式 Markdown……")
+        print("\n4/4 Writing Markdown…")
         markdown = chat(
             [
-                {"role": "system", "content": "严格按用户要求输出 Markdown，第一行必须是摘要行。"},
+                {"role": "system", "content": "Follow the user instructions. Output Markdown only; first line must be the summary line. Write in English."},
                 {
                     "role": "user",
                     "content": build_prompt(
@@ -802,13 +807,13 @@ def main() -> int:
         print("\n" + "=" * 72)
         print(markdown)
         print("=" * 72)
-        print(f"\n已保存：{destination}")
+        print(f"\nSaved: {destination}")
         return 0
     except (RuntimeError, ValueError, KeyError, json.JSONDecodeError) as exc:
-        print(f"\n错误：{exc}", file=sys.stderr)
+        print(f"\nError: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\n已取消")
+        print("\nCancelled")
         return 130
 
 

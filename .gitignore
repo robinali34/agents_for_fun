@@ -9,6 +9,8 @@ agents/Tarot/20*/
 agents/Tarot/corpus/cache/
 agents/Fitness/daily/
 agents/Fitness/weekly/
+agents/Challenge50/daily/
+agents/Challenge50/challenge.json
 infra/dify/volumes/
 .DS_Store
 .idea/

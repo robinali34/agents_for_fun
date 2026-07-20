@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS_DIR = ROOT / "corpus"
-BLOG_POST = Path("/home/robina/rli/blog_book_notes/_posts/2026-04-28-rider-waite-1909-waite-tarot.md")
+DEFAULT_BLOG = Path.home() / "rli" / "blog_book_notes" / "_posts" / "2026-04-28-rider-waite-1909-waite-tarot.md"
+BLOG_POST = Path(os.environ.get("TAROT_BLOG_POST", str(DEFAULT_BLOG)))
 API_JSON = CORPUS_DIR / "tarot-api-cards.json"
 OUT_JSON = CORPUS_DIR / "waite-rws.json"
 OUT_INDEX = CORPUS_DIR / "index.md"
@@ -248,20 +250,23 @@ def write_index(cards: list[dict[str, object]], path: Path) -> None:
 def main() -> None:
     CORPUS_DIR.mkdir(parents=True, exist_ok=True)
     if not API_JSON.exists():
-        raise SystemExit(f"缺少 {API_JSON}，请先运行 ./fetch-corpus.sh")
-    if not BLOG_POST.exists():
-        raise SystemExit(f"缺少博客全牌解析：{BLOG_POST}")
-
-    blog = parse_blog(BLOG_POST)
+        raise SystemExit(f"Missing {API_JSON} — run ./fetch-corpus.sh first")
+    if BLOG_POST.exists():
+        blog = parse_blog(BLOG_POST)
+        print(f"  blog cards: {len(blog)}")
+    else:
+        print(f"  blog skipped (not found): {BLOG_POST}")
+        print("  set TAROT_BLOG_POST to enable local blog merge")
+        blog = {}
     api = load_api(API_JSON)
     cards = merge(blog, api)
+    sources = ["https://github.com/ekelen/tarot-api"]
+    if blog:
+        sources.insert(0, str(BLOG_POST))
     payload = {
         "version": 1,
         "card_count": len(cards),
-        "sources": [
-            str(BLOG_POST),
-            "https://github.com/ekelen/tarot-api",
-        ],
+        "sources": sources,
         "cards": cards,
     }
     OUT_JSON.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

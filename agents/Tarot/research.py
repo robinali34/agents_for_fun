@@ -94,11 +94,11 @@ def fetch_web_sources(
     if use_cache:
         cached = load_web_cache(key)
         if cached is not None:
-            print(f"网络缓存命中：{key}（{len(cached)} 篇）")
+            print(f"Web cache hit: {key}（{len(cached)} 篇）")
             return cached, "cache"
 
     queries = build_web_queries(plan)
-    print(f"联网搜索（{len(queries)} 个查询）……")
+    print(f"Web search ({len(queries)} queries)…")
     refs = search_references(
         queries,
         per_keyword=per_keyword,
@@ -107,7 +107,7 @@ def fetch_web_sources(
     )
     if refs and use_cache:
         save_web_cache(key, plan, queries, refs)
-        print(f"已写入网络缓存：corpus/cache/web/{key}.json")
+        print(f"Wrote web cache: corpus/cache/web/{key}.json")
     return refs, "network"
 
 

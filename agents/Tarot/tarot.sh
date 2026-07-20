@@ -1,34 +1,34 @@
 #!/usr/bin/env bash
-# Unified Tarot launcher (inspired by tarot-oracle / 2acrestudios interactive CLI).
+# Unified Tarot launcher.
 # Usage:
-#   ./tarot.sh                         # interactive menu
-#   ./tarot.sh daily --draw -q "今日焦点" -y --offline
-#   ./tarot.sh 3 --draw -q "下周如何安排" -y
-#   ./tarot.sh 5 --draw -q "项目卡点" --offline
+#   ./tarot.sh
+#   ./tarot.sh daily --draw -q "Focus for today" -y --offline
+#   ./tarot.sh 3 --draw -q "How should I plan next week?" -y
+#   ./tarot.sh 5 --draw -q "Project bottleneck" --offline
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'EOF'
-本地塔罗 Agent
+Local Tarot agent
 
-用法:
-  ./tarot.sh                  交互菜单
-  ./tarot.sh daily [选项]     每日一抽
-  ./tarot.sh 3|question-3     三牌（现状/阻碍/建议）
-  ./tarot.sh 5|question-5     五牌
+Usage:
+  ./tarot.sh                  Interactive menu
+  ./tarot.sh daily [opts]     Daily single card
+  ./tarot.sh 3|question-3     Three-card (Situation / Obstacle / Advice)
+  ./tarot.sh 5|question-5     Five-card spread
 
-常用选项:
-  --draw / --auto     从 78 张牌自动抽（可重复；实体牌仍可手输）
-  -q / --question     问题文本（跳过部分交互）
-  --offline           不联网，只用本地语料
-  -y / --yes          跳过确认/覆盖提问
-  --seed TEXT         可复现抽牌种子
-  YYYY-MM-DD          指定日期
+Options:
+  --draw / --auto     Auto-draw from 78 cards (manual entry still available)
+  -q / --question     Question text (skips some prompts)
+  --offline           Local corpus only (no web)
+  -y / --yes          Skip confirm / overwrite prompts
+  --seed TEXT         Reproducible draw seed
+  YYYY-MM-DD          Date override
 
-示例（类似开源 oracle "question" --interpret）:
-  ./tarot.sh daily --draw -q "今天注意什么" -y
-  ./tarot.sh 3 --draw -q "下周如何安排" -y --offline
+Examples:
+  ./tarot.sh daily --draw -q "What should I notice today?" -y
+  ./tarot.sh 3 --draw -q "How should I plan next week?" -y --offline
 EOF
 }
 
@@ -54,15 +54,15 @@ run_q() {
 
 case "$MODE" in
   "" )
-    echo "本地塔罗 Agent"
-    echo "1) 每日一抽（手输牌）"
-    echo "2) 每日一抽（自动抽牌）"
-    echo "3) 三牌问题（手输）"
-    echo "4) 三牌问题（自动抽牌）"
-    echo "5) 五牌问题（自动抽牌）"
-    echo "6) 重建本地语料"
-    echo "q) 退出"
-    read -r -p "选择: " choice
+    echo "Local Tarot agent"
+    echo "1) Daily one card (manual)"
+    echo "2) Daily one card (auto-draw)"
+    echo "3) Three-card question (manual)"
+    echo "4) Three-card question (auto-draw)"
+    echo "5) Five-card question (auto-draw)"
+    echo "6) Rebuild local corpus"
+    echo "q) Quit"
+    read -r -p "Choice: " choice
     case "$choice" in
       1) run_daily ;;
       2) run_daily --draw ;;
@@ -71,7 +71,7 @@ case "$MODE" in
       5) run_q 5 --draw ;;
       6) exec "$ROOT/fetch-corpus.sh" ;;
       q|Q) exit 0 ;;
-      *) echo "无效选择"; exit 1 ;;
+      *) echo "Invalid choice"; exit 1 ;;
     esac
     ;;
   daily|one|1) run_daily "$@" ;;
@@ -79,7 +79,7 @@ case "$MODE" in
   5|question-5|q5) run_q 5 "$@" ;;
   help) usage ;;
   *)
-    echo "未知模式：$MODE"
+    echo "Unknown mode: $MODE"
     usage
     exit 1
     ;;

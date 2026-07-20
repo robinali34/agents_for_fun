@@ -1,8 +1,8 @@
-# 本地塔罗语料索引
+# Local Tarot corpus index
 
-共 78 张牌。优先用于减少联网搜索与额外模型调用。
+78 cards. Prefer this over web search to cut API/network use.
 
-| 中文 | English | 正位摘要 | 逆位摘要 |
+| Chinese | English | Upright summary | Reversed summary |
 |------|---------|----------|----------|
 | 愚者 | The Fool | 愚蠢、狂热、奢侈、陶醉、谵妄、疯狂、泄密。 | 疏忽、缺席、分散、粗心、冷漠、虚无、虚荣。 |
 | 魔术师 | The Magician | 技巧、外交、辞令、机敏；疾病、痛苦、损失、灾难、敌人的罗网；自信、意志；求问者（ | 医师、术士、心智疾病、耻辱、不安。 |

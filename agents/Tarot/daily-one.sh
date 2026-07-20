@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# 每日一抽：手输牌；加 --draw 自动抽
+# Daily one-card: manual entry; add --draw to auto-draw
 # Usage:
 #   ./daily-one.sh
-#   ./daily-one.sh --draw -q "今日焦点" -y
+#   ./daily-one.sh --draw -q "Focus for today" -y
 #   ./daily-one.sh --offline 2026-07-19
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

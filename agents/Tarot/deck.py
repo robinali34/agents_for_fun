@@ -15,7 +15,7 @@ def all_cards() -> list[dict[str, Any]]:
     corpus = load_corpus()
     cards = list(corpus.get("cards") or [])
     if len(cards) < 78:
-        raise RuntimeError(f"语料牌数异常：{len(cards)}（期望 78）")
+        raise RuntimeError(f"Unexpected corpus size: {len(cards)} (expected 78)")
     return cards
 
 
@@ -99,10 +99,10 @@ def draw_cards(
 ) -> list[dict[str, Any]]:
     """Draw unique cards with random upright/reversed (open-source CLI style)."""
     if count < 1:
-        raise RuntimeError("抽牌数量至少为 1")
+        raise RuntimeError("Draw count must be at least 1")
     deck = all_cards()
     if count > len(deck):
-        raise RuntimeError(f"抽牌数 {count} 超过牌组 {len(deck)}")
+        raise RuntimeError(f"Draw count {count} exceeds deck size {len(deck)}")
 
     rng = random.Random(seed) if seed is not None else random.SystemRandom()
     chosen = rng.sample(deck, count)

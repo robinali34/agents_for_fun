@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -11,8 +12,9 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+DATA_ROOT = Path(os.environ.get("FITNESS_DATA_ROOT", str(ROOT))).expanduser().resolve()
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MODEL = "qwen2.5:7b"
+MODEL = os.environ.get("FITNESS_MODEL", "qwen2.5:7b")
 
 
 def ask(label: str, default: str = "") -> str:
@@ -22,49 +24,49 @@ def ask(label: str, default: str = "") -> str:
 
 
 def collect() -> dict[str, str]:
-    print("\n每日减脂记录（不清楚可留空）\n")
+    print("\nDaily fat-loss log (leave blank if unknown)\n")
     return {
-        "date": ask("日期", date.today().isoformat()),
-        "weight_lb": ask("晨起体重（磅）"),
-        "waist": ask("腰围 cm"),
-        "sleep": ask("睡眠时长/质量"),
-        "steps": ask("今日步数"),
-        "training": ask("训练内容与时长"),
-        "food": ask("饮食概况"),
-        "protein": ask("蛋白质摄入（克或食物描述）"),
-        "water": ask("饮水量"),
-        "hunger": ask("饥饿感 1-10"),
-        "energy": ask("精神/体能 1-10"),
-        "pain": ask("疼痛或不适部位及程度"),
-        "notes": ask("其他记录"),
+        "date": ask("Date", date.today().isoformat()),
+        "weight_lb": ask("Morning weight (lb)"),
+        "waist": ask("Waist (cm)"),
+        "sleep": ask("Sleep duration / quality"),
+        "steps": ask("Steps today"),
+        "training": ask("Training (what + duration)"),
+        "food": ask("Food overview"),
+        "protein": ask("Protein (grams or food notes)"),
+        "water": ask("Water intake"),
+        "hunger": ask("Hunger 1-10"),
+        "energy": ask("Energy / mood 1-10"),
+        "pain": ask("Pain or discomfort (where + severity)"),
+        "notes": ask("Other notes"),
     }
 
 
 def make_prompt(data: dict[str, str]) -> str:
-    values = "\n".join(f"- {key}: {value or '未记录'}" for key, value in data.items())
-    return f"""你是一位谨慎、务实的健身记录助手，目标是帮助用户可持续减脂。
+    values = "\n".join(f"- {key}: {value or 'not recorded'}" for key, value in data.items())
+    return f"""You are a careful, practical fitness journaling assistant helping with sustainable fat loss.
 
-根据以下单日记录生成 Markdown 日报：
+From this single-day log, write a Markdown daily report:
 {values}
 
-要求：
-1. 只输出 Markdown，不使用代码围栏。
-2. 保留用户的原始数据，不虚构热量、营养或身体指标。
-3. 单日体重波动不能被解释为脂肪增减；体重单位为磅（lb），没有多日数据时明确说明趋势不足。
-4. 建议必须具体、温和、可执行，避免极端节食和惩罚性训练。
-5. 疼痛不为零或描述异常时，建议降低训练强度；若有胸痛、晕厥、呼吸困难或剧烈/持续疼痛，明确建议停止训练并及时求医。
-6. 不做医学诊断。
+Rules:
+1. Output Markdown only — no code fences.
+2. Keep the user's raw data; do not invent calories, macros, or body metrics.
+3. Do not treat one-day weight change as fat loss/gain; weight is in pounds (lb). Say trend is insufficient without multi-day data.
+4. Advice must be specific, gentle, and actionable — no extreme diets or punitive training.
+5. If pain is non-zero or unusual, suggest reducing intensity; for chest pain, fainting, breathing trouble, or severe/persistent pain, clearly advise stopping and seeking medical care.
+6. No medical diagnosis.
 
-使用以下结构：
-# 健身日报｜{data['date']}
-## 今日数据
-## 训练与活动
-## 饮食与恢复
-## 今日分析
-## 明日建议
-## 风险与注意事项
-## 原始记录
-## 标签
+Use this structure:
+# Fitness daily log｜{data['date']}
+## Today's data
+## Training & activity
+## Food & recovery
+## Analysis
+## Suggestions for tomorrow
+## Risks & cautions
+## Raw notes
+## Tags
 """
 
 
@@ -74,7 +76,7 @@ def analyze(prompt: str) -> str:
             "model": MODEL,
             "stream": False,
             "messages": [
-                {"role": "system", "content": "使用简体中文回答。"},
+                {"role": "system", "content": "Respond in English."},
                 {"role": "user", "content": prompt},
             ],
         }
@@ -88,19 +90,19 @@ def analyze(prompt: str) -> str:
         with urllib.request.urlopen(request, timeout=300) as response:
             result = json.load(response)
     except (urllib.error.URLError, TimeoutError) as exc:
-        raise RuntimeError(f"无法连接 Ollama：{exc}") from exc
+        raise RuntimeError(f"Cannot reach Ollama: {exc}") from exc
     return result["message"]["content"].strip()
 
 
 def save(day: str, markdown: str) -> Path:
     year, month, _ = day.split("-")
-    directory = ROOT / "daily" / year / month
+    directory = DATA_ROOT / "daily" / year / month
     directory.mkdir(parents=True, exist_ok=True)
     destination = directory / f"{day}.md"
     if destination.exists():
-        answer = input(f"{destination} 已存在，覆盖？[y/N]: ").strip().lower()
+        answer = input(f"{destination} exists. Overwrite? [y/N]: ").strip().lower()
         if answer != "y":
-            raise RuntimeError("已取消，原文件未修改")
+            raise RuntimeError("Cancelled — file left unchanged")
     destination.write_text(markdown.rstrip() + "\n", encoding="utf-8")
     return destination
 
@@ -108,16 +110,16 @@ def save(day: str, markdown: str) -> Path:
 def main() -> int:
     try:
         data = collect()
-        print("\n正在用本地模型分析，请稍候……")
+        print("\nAnalyzing with local model…")
         markdown = analyze(make_prompt(data))
         destination = save(data["date"], markdown)
-        print(f"\n已保存：{destination}")
+        print(f"\nSaved: {destination}")
         return 0
     except (RuntimeError, ValueError, KeyError) as exc:
-        print(f"\n错误：{exc}", file=sys.stderr)
+        print(f"\nError: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\n已取消")
+        print("\nCancelled")
         return 130
 
 
