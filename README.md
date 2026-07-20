@@ -1,78 +1,79 @@
 # agents_for_fun
 
-本地好玩的 Agent 工具集：塔罗、健身记录，以及把 Dify + Ollama 跑在本机的部署脚本。
+本机「好玩用」的 Agent 与 AI 栈小合集：
 
-> **说明：** 这里**不包含**完整的 [langgenius/dify](https://github.com/langgenius/dify) 源码（体积大且应走官方仓库）。  
-> 只同步你自己的 Agent 代码，以及本机部署相关的自定义脚本。
+- **终端 Agent**：塔罗解读、健身日记（Ollama + Markdown）
+- **Dify**：Docker 一键部署脚本，网页里搭 Chatflow / Agent
+- **NVIDIA**：笔记本 Optimus GPU 唤醒（可选）
 
-## 目录
+不包含完整 [Dify 上游源码](https://github.com/langgenius/dify)；请官方仓库另装，再用本仓库脚本。
+
+## 仓库结构
 
 ```text
 agents/
-  Tarot/          # 本地塔罗 Agent（Ollama + 语料 + 可选联网）
-  Fitness/        # 健身日记 Agent
+  Tarot/     # 本地塔罗（抽牌 / 语料 / 可选联网）
+  Fitness/   # 健身记录
 infra/
-  dify/deploy.sh  # 唤醒 GPU、启动 Ollama、docker compose up
-  nvidia/         # Optimus 笔记本 GPU 唤醒 systemd 单元
+  dify/      # Docker 部署说明 + deploy.sh   ← 从这里读 Dify 用法
+  nvidia/    # GPU 开机唤醒 systemd 单元
 ```
 
-## 前置
+## 快速开始
 
-- Ubuntu + NVIDIA GPU（可选，Ollama 可走 CPU）
-- [Ollama](https://ollama.com/) + 模型如 `qwen2.5:7b`
-- Docker / Compose（跑 Dify 时需要）
-
-## 塔罗 Agent
+### 1）终端塔罗（不依赖 Dify）
 
 ```bash
 cd agents/Tarot
-./fetch-corpus.sh          # 首次构建本地 78 牌语料
-./tarot.sh                 # 菜单
+./fetch-corpus.sh
+./tarot.sh
+# 或一键：
 ./tarot.sh 3 --draw -q "下周如何安排" -y --offline
 ```
 
-个人日记（`questions/`、按日期的 md）默认不进仓库，见 `.gitignore`。
+详见 [`agents/Tarot/README.md`](agents/Tarot/README.md)。
 
-## 健身 Agent
+### 2）健身日记
 
 ```bash
 cd agents/Fitness
 ./run.sh
 ```
 
-## Dify（本机部署）
+### 3）Dify（Docker）
 
-1. 克隆官方仓库（与本 repo 分开）：
+完整步骤（环境、`.env`、Compose、连 Ollama、排错）：
+
+**→ [`infra/dify/README.md`](infra/dify/README.md)**
+
+最短路径：
 
 ```bash
 git clone https://github.com/langgenius/dify.git ~/dify
-cd ~/dify/docker
-cp .env.example .env
+cd ~/dify/docker && cp .env.example .env
+
+# 从本仓库拷脚本
+cp /path/to/agents_for_fun/infra/dify/deploy.sh ./deploy.sh
+chmod +x deploy.sh
+./deploy.sh up
 ```
 
-2. 使用本仓库的部署脚本：
+浏览器打开 http://localhost ，在 **Integrations → Model Provider → Ollama** 填宿主机地址（如 `http://172.17.0.1:11434`）。
 
-```bash
-cp infra/dify/deploy.sh ~/dify/docker/deploy.sh
-chmod +x ~/dify/docker/deploy.sh
-~/dify/docker/deploy.sh up
-```
+## 前置
 
-3. 浏览器打开 `http://localhost`，在 Integrations → Model Provider 连接本机 Ollama（`http://host.docker.internal:11434` 或宿主机 IP）。
+| 组件 | 用途 |
+|------|------|
+| [Ollama](https://ollama.com/) + `qwen2.5:7b` 等 | 终端 Agent 与 Dify 共用 |
+| Docker / Compose | 仅跑 Dify 需要 |
+| NVIDIA 驱动（可选） | 加速推理；Optimus 见 `infra/nvidia/` |
 
-### GPU 开机唤醒（MSI / Optimus）
+## 隐私与 Git
 
-```bash
-sudo cp infra/nvidia/nvidia-gpu-wake.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now nvidia-gpu-wake.service
-```
-
-## 隐私
-
-- 不提交 `.env`、API Key、个人占卜/健身日记
-- 语料 `waite-rws.json` 来自公开 Pictorial Key + 本地博客构建脚本
+- 不提交 `.env`、API Key、个人占卜/健身日记  
+- `.gitignore` 已排除 `questions/`、按日期 md、`.venv`、`volumes/`  
+- 语料来自公开 Pictorial Key + 本地博客构建脚本  
 
 ## License
 
-Agent 脚本按个人使用分发；Dify 本体遵循其官方 License。
+本仓库脚本按个人使用分发；Dify 本体遵循其官方 License。
