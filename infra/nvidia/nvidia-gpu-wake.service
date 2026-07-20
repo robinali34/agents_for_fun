@@ -1,0 +1,16 @@
+[Unit]
+Description=Wake NVIDIA dGPU and create device nodes (Optimus)
+After=multi-user.target
+Before=ollama.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Keep dGPU from entering D3cold so Ollama can use CUDA
+ExecStart=/bin/bash -c 'echo on > /sys/bus/pci/devices/0000:01:00.0/power/control'
+ExecStart=/usr/bin/systemctl start nvidia-persistenced.service
+ExecStart=/sbin/ub-device-create
+ExecStart=/usr/bin/nvidia-smi -pm 1
+
+[Install]
+WantedBy=multi-user.target
