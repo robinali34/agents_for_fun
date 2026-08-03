@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Ensure Ollama, then run the 50-day challenge agent.
 # Usage:
-#   ./run.sh              # log today
+#   ./run.sh              # log today (multi-goal)
 #   ./run.sh status
 #   ./run.sh setup
+#   ./run.sh goals [list|add|pause X|resume X]
 #   ./run.sh 2026-07-19
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

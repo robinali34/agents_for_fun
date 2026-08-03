@@ -1,6 +1,6 @@
 # 50-day challenge agent
 
-Daily accountability log for a fixed **50-day** challenge. Uses local Ollama and saves Markdown.
+Daily accountability log for a fixed **50-day** challenge with **multiple goals**. Uses local Ollama and saves Markdown.
 
 ## Dependencies
 
@@ -17,7 +17,7 @@ cd ~/rli/agents_for_fun/agents/Challenge50
 ./setup.sh
 ```
 
-Creates `challenge.json` (title, goal, start date) under the data root.
+Creates `challenge.json` (title, **goals list**, start date) under the data root.
 
 Day-to-day (recommended) use the AI_Data wrapper so journals stay outside git:
 
@@ -30,17 +30,40 @@ Day-to-day (recommended) use the AI_Data wrapper so journals stay outside git:
 ## Commands
 
 ```bash
-./run.sh              # log today + LLM write-up
-./run.sh status       # Day N/50, logged / missed counts
-./run.sh setup        # create or replace challenge.json
+./run.sh              # log today (per-goal check-in) + LLM write-up
+./run.sh status       # Day N/50 + goal list
+./run.sh setup        # create / replace challenge, or edit goals
+./run.sh goals        # list goals
+./run.sh goals add    # add more goals
+./run.sh goals pause 1
+./run.sh goals resume g2
 ./run.sh 2026-07-19   # backfill a date
 ```
 
+## Config shape
+
+```json
+{
+  "title": "50-day challenge",
+  "start_date": "2026-07-20",
+  "total_days": 50,
+  "goals": [
+    {"id": "g1", "name": "Wake by 8am", "description": "Alarm + out of bed", "active": true},
+    {"id": "g2", "name": "Walk 20 min", "description": "", "active": true}
+  ]
+}
+```
+
+Legacy single-field `"goal": "..."` is auto-upgraded to `goals[]` on load.
+
 ## Prompts each day
 
-- Did you do today’s action? (y / n / partial)
-- What you did, optional minutes / energy / mood
-- Blockers, one win, tomorrow intention
+For **each active goal**:
+
+- Done today? (y / n / partial)
+- What you did, optional note
+
+Then overall energy / mood / blockers / win / tomorrow.
 
 ## Output
 
@@ -49,7 +72,7 @@ daily/YYYY/MM/YYYY-MM-DD.md
 challenge.json
 ```
 
-Header includes `<!-- challenge50-day: N -->`.
+Header includes `<!-- challenge50-day: N goals: id1,id2 -->`.
 
 ## Env
 

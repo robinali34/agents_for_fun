@@ -147,8 +147,21 @@ sudo systemctl restart ollama
 |----------|------|
 | Browser Chatflow / visual workflows | Dify (this guide) |
 | Terminal Tarot / fitness Markdown | `agents/Tarot`, `agents/Fitness` |
+| Apple DFT workplace onboarding Chatflow | `infra/dify/apps/apple-dft-onboarding/` |
 
 Both share the same host Ollama instance.
+
+### Ready-made app: Apple DFT Workplace Assistant
+
+Importable Chatflow + knowledge docs for settling into a Senior SWE (DFT / hardware test) role:
+
+```bash
+# After Dify is up (http://localhost):
+# Studio → Import DSL →
+#   infra/dify/apps/apple-dft-onboarding/apple-dft-workplace-assistant.yml
+```
+
+See `apps/apple-dft-onboarding/README.md`. Personal notes: `~/AI_Data/Workplace/AppleDFT/`.
 
 ## Optional GPU wake
 

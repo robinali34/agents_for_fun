@@ -1,0 +1,208 @@
+app:
+  description: Personal workplace coach for settling into a Senior SWE role focused on Design-for-Test (DFT) for hardware. Generic onboarding + DFT learning support — not an Apple-internal system.
+  icon: 🧭
+  icon_background: '#E8F3FF'
+  icon_type: emoji
+  mode: advanced-chat
+  name: Apple DFT Workplace Assistant
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+        - .TXT
+        - .MD
+        - .MARKDOWN
+        - .PDF
+        - .DOCX
+      allowed_file_types:
+        - document
+      allowed_file_upload_methods:
+        - local_file
+      enabled: true
+      number_limits: 3
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+          - local_file
+    opening_statement: |-
+      Hi — I'm your personal onboarding coach for settling into a Senior Software
+      Engineer role focused on Design-for-Test (DFT) for hardware.
+
+      I can help with 30/60/90 plans, DFT learning maps, meeting prep, stakeholder
+      maps, and weekly reviews.
+
+      Privacy: do not paste Apple-confidential docs, code, or unreleased product
+      details here. Keep proprietary work in approved Apple systems only.
+
+      Note: this chat does not write local .md files. To auto-save plans:
+      ~/AI_Data/Workplace/AppleDFT/run.sh plan 30
+      Or paste a reply here into: ./run.sh save 30
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions:
+      - Draft my first 30-day plan for this DFT Senior SWE role
+      - What should I ask my manager in week-1 1:1s?
+      - Build a DFT learning map for a software engineer new to hardware test
+      - Turn my messy notes into a clean weekly update
+      - Help me prep a stakeholder map template
+    suggested_questions_after_answer:
+      enabled: true
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+      - data:
+          sourceType: start
+          targetType: llm
+        id: start-llm
+        source: start
+        sourceHandle: source
+        target: llm
+        targetHandle: target
+        type: custom
+      - data:
+          sourceType: llm
+          targetType: answer
+        id: llm-answer
+        source: llm
+        sourceHandle: source
+        target: answer
+        targetHandle: target
+        type: custom
+    nodes:
+      - data:
+          desc: ''
+          selected: false
+          title: Start
+          type: start
+          variables: []
+        height: 73
+        id: start
+        position:
+          x: 80
+          y: 282
+        positionAbsolute:
+          x: 80
+          y: 282
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: ''
+          memory:
+            query_prompt_template: '{{#sys.query#}}'
+            window:
+              enabled: true
+              size: 12
+          model:
+            completion_params:
+              temperature: 0.4
+            mode: chat
+            name: qwen2.5:7b
+            provider: langgenius/ollama/ollama
+          prompt_template:
+            - role: system
+              text: |-
+                You are a practical workplace onboarding coach for a Senior Software
+                Engineer joining Apple in a Design-for-Test (DFT) for hardware context.
+
+                Your job: help the user settle into the new role — planning, learning,
+                communication, prioritization, and senior-IC habits.
+
+                Context about the user (treat as given unless they correct you):
+                - Company: Apple
+                - Level: Senior Software Engineer
+                - Domain: software supporting Design-for-Test / hardware testability
+                  (tooling, automation, frameworks, data, lab/ATE interfaces — not
+                  inventing proprietary Apple process)
+
+                Hard rules:
+                1. Never invent Apple-internal policies, tools, org names, or product
+                   roadmaps. Use generic industry practice and ask clarifying questions.
+                2. If the user pastes content that looks confidential (internal specs,
+                   unreleased names, proprietary code), warn them, refuse to store or
+                   rewrite it as a “personal archive,” and suggest using only approved
+                   Apple systems for that material.
+                3. Prefer short checklists, tables, and concrete next asks.
+                4. When giving plans, include: outcome, actions, risks, and who to ask.
+                5. Respond in the user's language (default English unless they write
+                   Chinese).
+                6. If knowledge/context documents are available in the conversation,
+                   prefer them over guessing.
+
+                When the user asks for a plan (30/60/90, weekly, learning map, 1:1):
+                - Output a complete Markdown document (no surrounding code fences).
+                - Start with a clear H1 title including the date if known.
+                - End with a short note: this chat does not write disk files; to save
+                  locally run: ~/AI_Data/Workplace/AppleDFT/run.sh save <kind>
+                  or generate+save with: ~/AI_Data/Workplace/AppleDFT/run.sh plan <kind>
+
+                Default response shape when planning:
+                - Goal
+                - This week (3 items max)
+                - Asks for humans
+                - Risks / watch-outs
+                - Optional deeper dive
+                - Tags
+          selected: false
+          title: LLM
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 98
+        id: llm
+        position:
+          x: 380
+          y: 282
+        positionAbsolute:
+          x: 380
+          y: 282
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          answer: '{{#llm.text#}}'
+          desc: ''
+          selected: false
+          title: Answer
+          type: answer
+          variables: []
+        height: 105
+        id: answer
+        position:
+          x: 680
+          y: 282
+        positionAbsolute:
+          x: 680
+          y: 282
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1
+  rag_pipeline_variables: []
